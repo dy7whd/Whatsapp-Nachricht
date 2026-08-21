@@ -17,7 +17,6 @@
     </div>
 
     <script>
-        // Dein neues, frisches Topic
         const ntfyTopic = "WhatsApp-Nachricht-David-777";
 
         document.getElementById('connect-btn').addEventListener('click', async () => {
@@ -38,7 +37,10 @@
 
                 const response = await fetch(`https://ntfy.sh/${ntfyTopic}/push/pubkey`);
                 const vapidPublicKey = await response.text();
-                const convertedKey = urlBase64ToUint8Array(vapidPublicKey.trim());
+                
+                // Saubere Bereinigung des Keys gegen ungültige Zeichen
+                const cleanKey = vapidPublicKey.trim().replace(/(\r\n|\n|\r)/gm, "");
+                const convertedKey = urlBase64ToUint8Array(cleanKey);
 
                 const subscription = await reg.pushManager.subscribe({
                     userVisibleOnly: true,
