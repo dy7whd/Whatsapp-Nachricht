@@ -45,10 +45,20 @@
 
             eventSource.onmessage = function (event) {
                 try {
-                    const data = JSON.parse(event.data);
-                    if (data.event === 'message') {
-                        const senderTitle = data.title || "WhatsApp";
-                        const messageBody = data.message || "Neue Nachricht";
+                    const eventData = JSON.parse(event.data);
+                    if (eventData.event === 'message') {
+                        // Hier parsen wir den Nachrichtentext, falls er als JSON gesendet wurde
+                        let messageBody = eventData.message || "Neue Nachricht";
+                        let senderTitle = eventData.title || "WhatsApp";
+
+                        // Falls der Nachrichtentext selbst ein JSON ist (wegen -d '{...}')
+                        try {
+                            const parsedBody = JSON.parse(eventData.message);
+                            if (parsedBody.title) senderTitle = parsedBody.title;
+                            if (parsedBody.message) messageBody = parsedBody.message;
+                        } catch (e) {
+                            // Wenn es normaler Text war, so lassen
+                        }
 
                         if (navigator.serviceWorker && navigator.serviceWorker.controller) {
                             navigator.serviceWorker.ready.then(reg => {
@@ -58,6 +68,12 @@
                                     badge: 'icon.png'
                                 });
                             });
+                        }
+                    }
+                } catch (e) {
+                    console.error("Fehler beim Verarbeiten:", e);
+                }
+            };
                         } else {
                             new Notification(senderTitle, {
                                 body: messageBody,
