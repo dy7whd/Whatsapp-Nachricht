@@ -40,24 +40,23 @@
             document.getElementById('connect-btn').style.background = '#128c7e';
             document.getElementById('connect-btn').innerText = 'Verbunden ✓';
 
-            // 3. Direktverbindung zum SSE-Stream (ohne VAPID-Fehler)
+            // 3. Direktverbindung zum SSE-Stream
             const eventSource = new EventSource(`https://ntfy.sh/${ntfyTopic}/sse`);
 
             eventSource.onmessage = function (event) {
                 try {
                     const eventData = JSON.parse(event.data);
                     if (eventData.event === 'message') {
-                        // Hier parsen wir den Nachrichtentext, falls er als JSON gesendet wurde
                         let messageBody = eventData.message || "Neue Nachricht";
                         let senderTitle = eventData.title || "WhatsApp";
 
-                        // Falls der Nachrichtentext selbst ein JSON ist (wegen -d '{...}')
+                        // Falls der Text als JSON gesendet wurde (-d '{...}')
                         try {
                             const parsedBody = JSON.parse(eventData.message);
                             if (parsedBody.title) senderTitle = parsedBody.title;
                             if (parsedBody.message) messageBody = parsedBody.message;
                         } catch (e) {
-                            // Wenn es normaler Text war, so lassen
+                            // Bleibt normaler Text
                         }
 
                         if (navigator.serviceWorker && navigator.serviceWorker.controller) {
@@ -67,17 +66,6 @@
                                     icon: 'icon.png',
                                     badge: 'icon.png'
                                 });
-                            });
-                        }
-                    }
-                } catch (e) {
-                    console.error("Fehler beim Verarbeiten:", e);
-                }
-            };
-                        } else {
-                            new Notification(senderTitle, {
-                                body: messageBody,
-                                icon: 'icon.png'
                             });
                         }
                     }
