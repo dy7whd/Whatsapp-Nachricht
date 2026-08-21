@@ -41,7 +41,7 @@
             document.getElementById('connect-btn').innerText = 'Verbunden ✓';
 
             // 3. Direktverbindung zum SSE-Stream
-            const eventSource = new EventSource(`https://ntfy.sh/${ntfyTopic}/sse`);
+            const eventSource = new EventSource(`https://ntfy.sh/${ntfyTopic}/sse?json=1`);
 
             eventSource.onmessage = function (event) {
                 try {
