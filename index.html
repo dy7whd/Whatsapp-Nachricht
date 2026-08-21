@@ -12,7 +12,7 @@
 
     <div style="background: white; max-width: 320px; margin: auto; padding: 30px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
         <h2 style="color: #075e54; margin-top: 0;">WhatsApp</h2>
-        <p id="status" style="color: #666; font-size: 14px; margin-bottom: 20px;">Tippe auf Verbinden, um Push-Benachrichtigungen zu aktivieren:</p>
+        <p id="status" style="color: #666; font-size: 14px; margin-bottom: 20px;">Tippe auf Verbinden, um Benachrichtigungen zu aktivieren:</p>
         <button id="connect-btn" style="background: #25d366; color: white; border: none; padding: 14px 24px; font-size: 16px; border-radius: 24px; font-weight: bold; cursor: pointer; width: 100%; box-shadow: 0 4px 10px rgba(37,211,102,0.3);">Verbinden</button>
     </div>
 
@@ -20,57 +20,58 @@
         const ntfyTopic = "WhatsApp-Nachricht-David-777";
 
         document.getElementById('connect-btn').addEventListener('click', async () => {
-            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-                alert('Push wird von diesem Browser nicht unterstützt.');
-                return;
+            // 1. Service Worker registrieren
+            if ('serviceWorker' in navigator) {
+                try {
+                    await navigator.serviceWorker.register('sw.js');
+                } catch (e) {
+                    console.log("SW Register Fehler:", e);
+                }
             }
 
+            // 2. Berechtigung abfragen
             const permission = await Notification.requestPermission();
             if (permission !== 'granted') {
                 alert('Du musst Benachrichtigungen erlauben!');
                 return;
             }
 
-            try {
-                const reg = await navigator.serviceWorker.register('sw.js');
-                await navigator.serviceWorker.ready;
+            document.getElementById('status').innerText = 'Verbunden & lauscht auf Nachrichten...';
+            document.getElementById('connect-btn').style.background = '#128c7e';
+            document.getElementById('connect-btn').innerText = 'Verbunden ✓';
 
-                const response = await fetch(`https://ntfy.sh/${ntfyTopic}/push/pubkey`);
-                const vapidPublicKey = await response.text();
-                
-                // Saubere Bereinigung des Keys gegen ungültige Zeichen
-                const cleanKey = vapidPublicKey.trim().replace(/(\r\n|\n|\r)/gm, "");
-                const convertedKey = urlBase64ToUint8Array(cleanKey);
+            // 3. Direktverbindung zum SSE-Stream (ohne VAPID-Fehler)
+            const eventSource = new EventSource(`https://ntfy.sh/${ntfyTopic}/sse`);
 
-                const subscription = await reg.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: convertedKey
-                });
+            eventSource.onmessage = function (event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.event === 'message') {
+                        const senderTitle = data.title || "WhatsApp";
+                        const messageBody = data.message || "Neue Nachricht";
 
-                await fetch(`https://ntfy.sh/${ntfyTopic}/push/subscribe`, {
-                    method: 'POST',
-                    body: JSON.stringify(subscription)
-                });
+                        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                            navigator.serviceWorker.ready.then(reg => {
+                                reg.showNotification(senderTitle, {
+                                    body: messageBody,
+                                    icon: 'icon.png',
+                                    badge: 'icon.png'
+                                });
+                            });
+                        } else {
+                            new Notification(senderTitle, {
+                                body: messageBody,
+                                icon: 'icon.png'
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.error("Fehler beim Verarbeiten:", e);
+                }
+            };
 
-                document.getElementById('status').innerText = 'Verbunden & bereit!';
-                document.getElementById('connect-btn').style.background = '#128c7e';
-                document.getElementById('connect-btn').innerText = 'Verbunden ✓';
-                alert('Erfolgreich verbunden!');
-            } catch (err) {
-                alert('Fehler: ' + err.message);
-            }
+            alert('Erfolgreich verbunden!');
         });
-
-        function urlBase64ToUint8Array(base64String) {
-            const padding = '='.repeat((4 - base64String.length % 4) % 4);
-            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-            const rawData = window.atob(base64);
-            const outputArray = new Uint8Array(rawData.length);
-            for (let i = 0; i < rawData.length; ++i) {
-                outputArray[i] = rawData.charCodeAt(i);
-            }
-            return outputArray;
-        }
     </script>
 </body>
 </html>
